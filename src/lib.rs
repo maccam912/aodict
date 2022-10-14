@@ -1,6 +1,6 @@
 use core::hash::Hash;
-use std::collections::HashMap;
 use pyo3::prelude::*;
+use std::collections::HashMap;
 
 #[derive(Clone)]
 #[pyclass]
@@ -24,6 +24,22 @@ impl PartialEq for PyHashable {
 }
 
 impl Eq for PyHashable {}
+
+#[pyclass]
+struct Iter {
+    inner: std::vec::IntoIter<PyHashable>,
+}
+
+#[pymethods]
+impl Iter {
+    fn __iter__(slf: PyRef<'_, Self>) -> PyRef<'_, Self> {
+        slf
+    }
+
+    fn __next__(mut slf: PyRefMut<'_, Self>) -> Option<PyObject> {
+        slf.inner.next().map(|x| x.0)
+    }
+}
 
 #[pyclass]
 struct AODict(HashMap<PyHashable, PyHashable>);
@@ -54,6 +70,19 @@ impl AODict {
 
     fn _getitem(&self, key: &PyHashable) -> Option<PyHashable> {
         self.0.get(key).cloned()
+    }
+
+    fn __iter__(slf: PyRef<'_, Self>) -> PyResult<Py<Iter>> {
+        let iter = Iter {
+            inner: slf
+                .0
+                .keys()
+                .cloned()
+                .collect::<Vec<PyHashable>>()
+                .into_iter(),
+        };
+
+        Py::new(slf.py(), iter)
     }
 }
 
